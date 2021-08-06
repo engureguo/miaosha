@@ -1,0 +1,12 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.engure.miaosha.dao.OrderDao">
+
+    <insert id="insertOrder" useGeneratedKeys="true" keyProperty="id">
+        insert into `order`(sid,name,create_time)
+        values (#{sid}, #{name}, #{createTime})
+    </insert>
+
+</mapper>
