@@ -17,6 +17,13 @@
 		<java.version>1.8</java.version>
 	</properties>
 	<dependencies>
+		<!--谷歌令牌桶支持依赖-->
+		<dependency>
+			<groupId>com.google.guava</groupId>
+			<artifactId>guava</artifactId>
+			<version>28.2-android</version>
+		</dependency>
+
 		<dependency>
 			<groupId>com.alibaba</groupId>
 			<artifactId>druid-spring-boot-starter</artifactId>
