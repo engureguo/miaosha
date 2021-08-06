@@ -5,10 +5,12 @@ import com.engure.miaosha.entity.Order;
 import com.engure.miaosha.entity.Stock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 
 @Service
+@Transactional
 public class StockServiceImpl implements StockService {
 
     @Autowired
@@ -16,8 +18,7 @@ public class StockServiceImpl implements StockService {
 
     @Autowired
     private OrderService orderService;
-
-    public int kill(Integer id) throws Exception {
+    public synchronized int kill(Integer id) throws Exception {
         Stock stock = stockDao.findStockById(id);
         // 如果售空，则返回售空，如果没有则返回订单编号
         if (stock.getTotal().equals(stock.getSale())) {
