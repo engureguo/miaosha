@@ -17,10 +17,8 @@ public class MiaoshaController {
     public String kill(Integer id) {
 
         try {
-            synchronized (this) {
-                int orderId = stockService.kill(id);
-                return "秒杀成功！，订单编号 " + orderId;
-            }
+            int orderId = stockService.kill(id);
+            return "秒杀成功！，订单编号 " + orderId;
         } catch (Exception e) {
             e.printStackTrace();
             return e.getMessage();

@@ -35,8 +35,46 @@ synchronized代码块执行是在事务之内执行的，可以推断在代码�
 解决方法：
 synchronized同步范围大于事务同步范围，在 业务层kill方法之外进行同步，保证释放锁的时候事务已经提交
 ```java
+@RestController
+@RequestMapping("ms")
+public class MiaoshaController {
+    
+    @GetMapping("kill")
+    public String kill(Integer id) {
 
+        try {
+            synchronized (this) {   // 控制层的调用处加锁
+                int orderId = stockService.kill(id);
+                return "秒杀成功！，订单编号 " + orderId;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return e.getMessage();
+        }
+
+    }
+}
 ```
+
+可以解决问题（单机下）
+缺点：一个线程拿到锁其他线程处于阻塞状态，用户体验差，服务器压力大，吞吐量小
+
+
+## 乐观锁（利用数据库锁机制
+
+数据库层面上过滤到一些请求
+
+实际上是把防止超卖问题交给数据库解决，利用 **表中的version字段和数据库的事务** 避免超卖问题
+
+使用表中的version字段：
+1. `select id,num,version from stock where id = 1`
+2. `update stock set sale=sale+1, version=version+1 where id=1 and version=#{version}`
+
+
+
+
+
+
 
 
 

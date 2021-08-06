@@ -18,14 +18,17 @@ public class StockServiceImpl implements StockService {
 
     @Autowired
     private OrderService orderService;
-    public int kill(Integer id) throws Exception {
+
+    public int kill(Integer id) {
         Stock stock = stockDao.findStockById(id);
         // 如果售空，则返回售空，如果没有则返回订单编号
         if (stock.getTotal().equals(stock.getSale())) {
-            throw new Exception("商品已售空！！");
+            throw new RuntimeException("商品已售空！！");
         } else {
-            stock.setSale(stock.getSale() + 1);
-            stockDao.updateStockSaleById(stock);
+            Integer res = stockDao.updateStockAndVersionSaleById(stock); // 同时更新 sale 和 version 两个字段
+            if (res == 0) {
+                throw new RuntimeException("秒杀失败！！");
+            }
             // 插入库存表
             Order order = new Order();
             order.setSid(stock.getId()).setName(stock.getName()).setCreateTime(new Date());
