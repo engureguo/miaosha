@@ -2,6 +2,13 @@
 
 简单的秒杀系统
 
+项目改进：
+1. 常规写法（在业务层使用事务）
+2. 悲观锁（控制层）
+3. 乐观锁（商品的version字段 + 数据库事务特性，业务层）
+4. 令牌桶 + 乐观锁（控制层，防止同一时刻大量请求对数据库压力过大）
+5. 规定抢购时间
+
 ## 悲观锁思路
 
 踩坑：
@@ -61,7 +68,7 @@ public class MiaoshaController {
 缺点：一个线程拿到锁其他线程处于阻塞状态，用户体验差，服务器压力大，吞吐量小
 
 
-## 乐观锁（利用数据库锁机制
+## 乐观锁（利用数据库事务的锁机制）
 
 数据库层面上过滤到一些请求
 
@@ -92,13 +99,66 @@ public class MiaoshaController {
 - 漏斗算法：漏桶算法思路很简单，水(请求）先进入到漏桶里，漏桶以一定的速度出水，当水流入速度过大会直接溢出，可以看出漏桶算法能强行限制数据的传输速率。
 - 令牌桶算法：最初来源于计算机网络。在网络传输数据时，为了防止网络拥塞，需限制流出网络的流量，使流量以比较均匀的速度向外发送。令牌桶算法就实现了这个功能，可控制发送到网络上数据的数目，并允许突发数据的发送。大小固定的令牌桶可自行以恒定的速率源源不断地产生令牌。如果令牌不被消耗，或者被消耗的速度小于产生的速度，令牌就会不断地增多，直到把桶填满。后面再产生的令牌就会从桶中溢出。最后桶中可以保存的最大令牌数永远不会超过桶的大小。这意味，面对瞬时大流量，该算法可以在短时间内请求拿到大量令牌，而且拿令牌的过程并不是消耗很大的事情。
 
+Guava的RateLimiter简单使用
+```java
+@RestController
+public class MiaoshaController {
 
+    // 创建令牌桶实例
+    private RateLimiter rateLimiter = RateLimiter.create(50);//每秒产生多少个token
+
+    @GetMapping("limiter")
+    public String limiter(Integer id) {
+        //1.阻塞式
+        //double acqDuration = rateLimiter.acquire();//获取令牌阻塞了多少秒
+        //System.out.println(" 等待了 " + acqDuration + " s");
+
+        //2.超时等待
+        boolean pass = rateLimiter.tryAcquire(2, TimeUnit.SECONDS);
+        if (!pass) {
+            System.out.println("当前请求被限流，直接被抛弃...");
+            return "请重试.";
+        }
+        return "令牌桶测试";
+    }
+}
+```
 
 参考：
-
-https://www.cnblogs.com/xuwc/p/9123078.html
-
-http://ifeve.com/guava-ratelimiter/
+- https://www.cnblogs.com/xuwc/p/9123078.html
+- http://ifeve.com/guava-ratelimiter/
 
 
+### 乐观锁 + 令牌桶
+
+在乐观锁防止超卖的情况下，使用令牌桶避免同一时刻来自控制层的大量请求对数据库的压力过大
+
+使用令牌桶：
+```java
+/**
+ * 乐观锁 + 令牌桶。使用令牌桶算法，避免同一时刻的请求处理对 mysql 的压力过大
+ * @param id
+ * @return
+ */
+@GetMapping("kill2ken")
+public String killByToken(Integer id) {
+
+    if (!rateLimiter.tryAcquire(2, TimeUnit.SECONDS)) { // 调用服务层业务之前进行限流
+        throw new RuntimeException("抢购过于火爆，请重试~~~");
+    }
+    
+    try {
+        int orderId = stockService.kill(id);
+        return "秒杀成功！，订单编号 " + orderId;
+    } catch (Exception e) {
+        e.printStackTrace();
+        return e.getMessage();
+    }
+
+}
+```
+效果：由于并发过大，大部分请求在规定时间内没有拿到令牌，没有进入业务层，不会对数据库压力过大
+
+
+## 访问控制
 

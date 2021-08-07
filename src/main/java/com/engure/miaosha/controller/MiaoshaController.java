@@ -2,6 +2,7 @@ package com.engure.miaosha.controller;
 
 import com.engure.miaosha.service.StockService;
 import com.google.common.util.concurrent.RateLimiter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -11,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("ms")
+@Slf4j
 public class MiaoshaController {
 
     @Autowired
@@ -48,6 +50,32 @@ public class MiaoshaController {
             return "秒杀成功！，订单编号 " + orderId;
         } catch (Exception e) {
             e.printStackTrace();
+            return e.getMessage();
+        }
+
+    }
+
+    /**
+     * 乐观锁 + 令牌桶。使用令牌桶算法，避免同一时刻大量的请求对 mysql 的压力过大
+     * @param id
+     * @return
+     */
+    @GetMapping("kill2ken")
+    public String killByToken(Integer id) {
+
+        if (!rateLimiter.tryAcquire(2, TimeUnit.SECONDS)) { // 调用服务层业务之前进行限流
+            log.info("抢购过于火爆，请重试~~~");
+            //throw new RuntimeException("抢购过于火爆，请重试~~~");
+            return "为了控制台更好的显示，这里不抛异常，不打印堆栈";
+        }
+
+        try {
+            int orderId = stockService.kill(id);
+            log.info("秒杀成功！，订单编号 " + orderId);
+            return "秒杀成功！，订单编号 " + orderId;
+        } catch (Exception e) {
+            //e.printStackTrace();
+            log.info(e.getMessage());
             return e.getMessage();
         }
 
