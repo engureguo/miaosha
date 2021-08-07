@@ -4,6 +4,7 @@ import com.engure.miaosha.service.StockService;
 import com.google.common.util.concurrent.RateLimiter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +21,9 @@ public class MiaoshaController {
 
     // 创建令牌桶实例
     private RateLimiter rateLimiter = RateLimiter.create(50);//每秒产生多少个token
+
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;//操作redis
 
     @GetMapping("limiter")
     public String limiter(Integer id) {
@@ -80,5 +84,76 @@ public class MiaoshaController {
         }
 
     }
+
+    @GetMapping("kill3")
+    public String killByTokenByExpire(Integer id) {
+
+        if (!stringRedisTemplate.hasKey("kill" + id)) { // 规定缓存中超时记录的键为 <kill + 商品id>
+            //throw new RuntimeException("抢购已结束~~~");
+            log.info("抢购已结束!!~");
+            return "over";
+        }
+
+        if (!rateLimiter.tryAcquire(2, TimeUnit.SECONDS)) { // 调用服务层业务之前进行限流
+            log.info("抢购过于火爆，请重试~~~");
+            //throw new RuntimeException("抢购过于火爆，请重试~~~");
+            return "为了控制台更好的显示，这里不抛异常，不打印堆栈";
+        }
+
+        try {
+            int orderId = stockService.kill(id);
+            log.info("秒杀成功！，订单编号 " + orderId);
+            return "秒杀成功！，订单编号 " + orderId;
+        } catch (Exception e) {
+            //e.printStackTrace();
+            log.info(e.getMessage());
+            return e.getMessage();
+        }
+
+    }
+
+    /*****************************/
+
+    @GetMapping("getmd5")
+    public String getMD5(Integer id, Integer uid) {
+
+        try {
+            String md5 = stockService.getMd5(id, uid);
+            return "获取到验证值为 " + md5;
+        } catch (Exception e) {
+            //e.printStackTrace();
+            return e.getMessage();
+        }
+
+    }
+
+    @GetMapping("killbymd5")
+    public String killByMd5(Integer id, Integer uid, String md5) {
+
+        // 这里主要为了测试<接口隐藏>功能，不考虑超时抢购
+        //if (!stringRedisTemplate.hasKey("kill" + id)) { // 规定缓存中超时记录的键为 <kill + 商品id>
+        //    //throw new RuntimeException("抢购已结束~~~");
+        //    log.info("抢购已结束!!~");
+        //    return "over";
+        //}
+
+        if (!rateLimiter.tryAcquire(2, TimeUnit.SECONDS)) { // 调用服务层业务之前进行限流
+            log.info("抢购过于火爆，请重试~~~");
+            //throw new RuntimeException("抢购过于火爆，请重试~~~");
+            return "为了控制台更好的显示，这里不抛异常，不打印堆栈";
+        }
+
+        try {
+            int orderId = stockService.killByMd5(id, uid, md5);
+            log.info("秒杀成功！，订单编号 " + orderId);
+            return "秒杀成功！，订单编号 " + orderId;
+        } catch (Exception e) {
+            //e.printStackTrace();
+            log.info(e.getMessage());
+            return e.getMessage();
+        }
+
+    }
+
 
 }

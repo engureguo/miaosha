@@ -10,4 +10,8 @@ public interface StockService {
     Stock getStockInfoById(Integer id);
 
     void updateStock(Stock stock);
+
+    String getMd5(Integer id, Integer uid);
+
+    int killByMd5(Integer id, Integer uid, String md5);
 }
