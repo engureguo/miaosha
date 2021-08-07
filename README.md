@@ -14,8 +14,6 @@ https://www.bilibili.com/video/BV13a4y1t7Wh
 6. 接口隐藏（md5盐值校验，redis）
 7. 单个用户访问频率限制（redis）
 
-## 悲观锁思路
-
 sql：
 ```sql
 SET NAMES utf8mb4;
@@ -39,16 +37,6 @@ CREATE TABLE `order`  (
 INSERT INTO `order` VALUES (826, 1, '鸿星尔克球鞋', '2021-08-07 15:13:36');
 INSERT INTO `order` VALUES (827, 1, '鸿星尔克球鞋', '2021-08-07 15:13:36');
 INSERT INTO `order` VALUES (828, 1, '鸿星尔克球鞋', '2021-08-07 15:13:36');
-INSERT INTO `order` VALUES (829, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
-INSERT INTO `order` VALUES (830, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
-INSERT INTO `order` VALUES (831, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
-INSERT INTO `order` VALUES (832, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
-INSERT INTO `order` VALUES (833, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
-INSERT INTO `order` VALUES (834, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
-INSERT INTO `order` VALUES (835, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
-INSERT INTO `order` VALUES (836, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
-INSERT INTO `order` VALUES (837, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
-INSERT INTO `order` VALUES (838, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
 
 -- ----------------------------
 -- Table structure for stock
@@ -66,7 +54,7 @@ CREATE TABLE `stock`  (
 -- ----------------------------
 -- Records of stock
 -- ----------------------------
-INSERT INTO `stock` VALUES (1, '鸿星尔克球鞋', 100, 13, 496);
+INSERT INTO `stock` VALUES (1, '鸿星尔克球鞋', 100, 3, 3);
 
 -- ----------------------------
 -- Table structure for user
@@ -87,6 +75,8 @@ INSERT INTO `user` VALUES (1, 'enen', '123');
 SET FOREIGN_KEY_CHECKS = 1;
 
 ```
+
+## 悲观锁思路
 
 踩坑：
 ```java
