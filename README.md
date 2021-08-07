@@ -6,12 +6,12 @@
 
 改进：
 1. 常规写法（在业务层使用事务）
-2. 悲观锁（控制层）
+2. 悲观锁（控制层，sync）
 3. 乐观锁（商品的version字段 + 数据库事务特性，业务层）
-4. 令牌桶 + 乐观锁（控制层，防止同一时刻大量请求对数据库压力过大）
-5. 规定抢购时间
-6. 接口隐藏（md5盐值校验）
-7. 单个用户访问频率限制
+4. 令牌桶 + 乐观锁（控制层，防止同一时刻大量请求对数据库压力过大，ratelimter）
+5. 规定抢购时间（redis）
+6. 接口隐藏（md5盐值校验，redis）
+7. 单个用户访问频率限制（redis）
 
 ## 悲观锁思路
 
@@ -101,7 +101,7 @@ public class MiaoshaController {
 <img src="images/README.assets/image-20210807014602534.png" alt="image-20210807014602534" style="zoom:80%;" />
 
 - 漏斗算法：漏桶算法思路很简单，水(请求）先进入到漏桶里，漏桶以一定的速度出水，当水流入速度过大会直接溢出，可以看出漏桶算法能强行限制数据的传输速率。
-- 令牌桶算法：最初来源于计算机网络。在网络传输数据时，为了防止网络拥塞，需限制流出网络的流量，使流量以比较均匀的速度向外发送。令牌桶算法就实现了这个功能，可控制发送到网络上数据的数目，并允许突发数据的发送。大小固定的令牌桶可自行以恒定的速率源源不断地产生令牌。如果令牌不被消耗，或者被消耗的速度小于产生的速度，令牌就会不断地增多，直到把桶填满。后面再产生的令牌就会从桶中溢出。最后桶中可以保存的最大令牌数永远不会超过桶的大小。这意味，面对瞬时大流量，该算法可以在短时间内请求拿到大量令牌，而且拿令牌的过程并不是消耗很大的事情。
+- 令牌桶算法：最初来源于计算机网络。在网络传输数据时，为了防止网络拥塞，需限制流出网络的流量，使流量以比较均匀的速度向外发送。令牌桶算法就实现了这个功能，可控制发送到网络上数据的数目，并允许突发数据的发送。大小固定的令牌桶可自行以恒定的速率源源不断地产生令牌。如果令牌不被消耗，或者被消耗的速度小于产生的速度，令牌就会不断地增多，`直到把桶填满`。后面再产生的令牌就会从桶中`溢出`。最后桶中可以保存的最大令牌数永远不会超过桶的大小。这意味，面对瞬时大流量，该算法可以在短时间内请求拿到大量令牌，而且拿令牌的过程并不是消耗很大的事情。
 
 Guava 的 RateLimiter 简单使用
 ```java
@@ -218,7 +218,7 @@ public String killByTokenByExpire(Integer id) {
 
 ### 接口隐藏
 
-按照视频的说法，感觉有误导性，不是接口被隐藏了看不到了，本质需要添加验证值验证身份？
+按照视频的说法，感觉有误导性，不是 <u>接口被隐藏</u> 了看不到了，~~本质需要添加验证值验证身份？~~
 
 抢购接口隐藏（加盐）的具体做法：
 
@@ -339,17 +339,117 @@ public String killByMd5(Integer id, Integer uid, String md5) {
 }
 ```
 
-思考：两步操作怎么耦合？设置超时时间仍不安全，需要规定单个用户的访问频率，在缓存中记录用户在最近 5s 内的访问次数，设计一个访问上限
+思考：~~两步操作怎么耦合？~~设置超时时间仍不安全，需要规定单个用户的访问频率，在缓存中记录用户在最近 5s 内的访问次数，设计一个访问上限
+
+> 关于 **隐藏接口** 的再次理解：对于用户而言是隐藏了 getMd5方法获取验证值
+
+
 
 ### 设置访问频率
 
+继续优化，提高安全性。
+
+考虑到有的人可能会先拿到 md5验证值（从请求中），再立刻请求购买。
+
+入手：`限制单个用户的抢购频率`
+
+思路：使用 redis 统计每个用户（通过 md5 验证）对商品的访问情况。
+
+在用户调用业务代码之前，检查用户的访问次数，超过访问次数则不让他进行访问。
+
+<img src="images/README.assets/image-20210807224333319.png" alt="image-20210807224333319" style="zoom:80%;" />
+
+写法与up主稍有不同。将检测代码全部放在了 `allowVisit(id, uid, md5)` 中，效果一样。
+
+控制层：
+
+```java
+/**
+ * 乐观锁防超卖 + 令牌桶限流 + md5签名（隐藏 getMd5 接口！） + 单用户访问频率限制
+ */
+@GetMapping("killtms")
+public String killByMd5AndTimes(Integer id, Integer uid, String md5) {
+
+    // 这里主要为了测试<限制访问频率>的功能，不考虑超时抢购，需要考虑md5
+    //if (!stringRedisTemplate.hasKey("kill" + id)) { // 规定缓存中超时记录的键为 <kill + 商品id>
+    //    //throw new RuntimeException("抢购已结束~~~");
+    //    log.info("抢购已结束!!~");
+    //    return "over";
+    //}
+
+    try {
+        stockService.allowVisit(id, uid, md5);//需要验证值md5且不超时，检查访问频率
+    } catch (Exception e) {
+        //e.printStackTrace();
+        log.info(e.getMessage());
+        return e.getMessage();
+    }
+
+    if (!rateLimiter.tryAcquire(2, TimeUnit.SECONDS)) { // 调用服务层业务之前进行限流
+        log.info("抢购过于火爆，请重试~~~");
+        //throw new RuntimeException("抢购过于火爆，请重试~~~");
+        return "为了控制台更好的显示，这里不抛异常，不打印堆栈";
+    }
+
+    try {
+        int orderId = stockService.//allowVisite方法 已经检验过md5
+        log.info("秒杀成功！，订单编号 " + orderId);
+        return "秒杀成功！，订单编号 " + orderId;
+    } catch (Exception e) {
+        //e.printStackTrace();
+        log.info(e.getMessage());
+        return e.getMessage();
+    }
+
+}
+```
+
+业务层：
+
+```java
+/**
+ * 是否允许访问：检查 md5 、检查访问频率
+ */
+@Override
+public boolean allowVisit(Integer id, Integer uid, String md5) {
+
+    if (id == null || uid == null || md5 == null)
+        throw new RuntimeException("参数不合法，请重试~~~");
+
+    // 检查md5(功能与 killByMd5方法重复)
+    String key = "MS_KEY_" + id + "_" + uid;
+    String value = stringRedisTemplate.opsForValue().get(key);
+    log.info("验证用户：key={}, value={}", key, value);
+    if (value == null || !value.equals(md5))
+        throw new RuntimeException("验证信息不合法，请重试~~");
+
+    // 检查访问频次
+    String freKey = "LIMIT_VISIT_" + id + "_" + uid;
+    // duration内最多有maxTimes次访问
+    int maxTimes = 10;
+    int duration = 3;
+    String freValue = stringRedisTemplate.opsForValue().get(freKey);
+    log.info("用户访问：key={}, value={}", freKey, freValue);
+
+    if (freValue == null) // 用户没有访问或者上一轮访问限制到时
+        stringRedisTemplate.opsForValue().set(freKey, "1", duration, TimeUnit.SECONDS);
+    else if (freValue.equals(String.valueOf(maxTimes)))
+        throw new RuntimeException("当前活动较为火爆，请重试~~~（访问次数过多）");//达到次数后，需要限制访问，直到 LIMIT_1_1 超时
+    else {
+        String newV = String.valueOf(Integer.parseInt(freValue) + 1);
+        stringRedisTemplate.opsForValue().set(freKey, newV, duration, TimeUnit.SECONDS);//更新时间
+    }
+    return true;
+}
+```
 
 
 
+### jmeter 使用
 
+线程组、添加（http请求、结果树）
 
-
-
+<img src="images/README.assets/image-20210807232439974.png" alt="image-20210807232439974" style="zoom:80%;" />
 
 
 

@@ -14,4 +14,6 @@ public interface StockService {
     String getMd5(Integer id, Integer uid);
 
     int killByMd5(Integer id, Integer uid, String md5);
+
+    boolean allowVisit(Integer id, Integer uid, String md5);
 }

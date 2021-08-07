@@ -70,12 +70,13 @@ public class StockServiceImpl implements StockService {
 
         String key = "MS_KEY_" + id + "_" + uid;// MS_KEY_商品id_用户id
         String salt = "!!!Q*?...#";
+        int liveTime = 3600;//超时时间，为了测试 但用户访问 频率，这个值调大
         String value = stringRedisTemplate.opsForValue().get(key);
         if (value == null) {
             String from = System.currentTimeMillis() + salt;
             value = DigestUtils.md5DigestAsHex(from.getBytes(StandardCharsets.UTF_8));//时间戳 + salt
         }
-        stringRedisTemplate.opsForValue().set(key, value, 30, TimeUnit.SECONDS);//刷新验证值超时时间
+        stringRedisTemplate.opsForValue().set(key, value, liveTime, TimeUnit.SECONDS);//刷新验证值超时时间
         log.info("用户验证值获取：用户{}，商品{}, md5{}", uid, id, value);
         return value;
     }
@@ -86,7 +87,7 @@ public class StockServiceImpl implements StockService {
     @Override
     public int killByMd5(Integer id, Integer uid, String md5) {
 
-        if (id==null || uid==null || md5==null)
+        if (id == null || uid == null || md5 == null)
             throw new RuntimeException("参数不合法，请重试~~~");
 
         String key = "MS_KEY_" + id + "_" + uid;
@@ -96,6 +97,41 @@ public class StockServiceImpl implements StockService {
             throw new RuntimeException("请求数据不合法，请重试~~");
 
         return kill(id);
+    }
+
+    /**
+     * 是否允许访问：检查 md5 、检查访问频率
+     */
+    @Override
+    public boolean allowVisit(Integer id, Integer uid, String md5) {
+
+        if (id == null || uid == null || md5 == null)
+            throw new RuntimeException("参数不合法，请重试~~~");
+
+        // 检查md5(功能与 killByMd5方法重复)
+        String key = "MS_KEY_" + id + "_" + uid;
+        String value = stringRedisTemplate.opsForValue().get(key);
+        log.info("验证用户：key={}, value={}", key, value);
+        if (value == null || !value.equals(md5))
+            throw new RuntimeException("验证信息不合法，请重试~~");
+
+        // 检查访问频次
+        String freKey = "LIMIT_VISIT_" + id + "_" + uid;
+        // duration内最多有maxTimes次访问
+        int maxTimes = 10;
+        int duration = 3;
+        String freValue = stringRedisTemplate.opsForValue().get(freKey);
+        log.info("用户访问：key={}, value={}", freKey, freValue);
+
+        if (freValue == null) // 用户没有访问或者上一轮访问限制到时
+            stringRedisTemplate.opsForValue().set(freKey, "1", duration, TimeUnit.SECONDS);
+        else if (freValue.equals(String.valueOf(maxTimes)))
+            throw new RuntimeException("当前活动较为火爆，请重试~~~（访问次数过多）");//达到次数后，需要限制访问，直到 LIMIT_1_1 超时
+        else {
+            String newV = String.valueOf(Integer.parseInt(freValue) + 1);
+            stringRedisTemplate.opsForValue().set(freKey, newV, duration, TimeUnit.SECONDS);//更新时间
+        }
+        return true;
     }
 
 
