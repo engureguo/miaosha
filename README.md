@@ -16,6 +16,78 @@ https://www.bilibili.com/video/BV13a4y1t7Wh
 
 ## 悲观锁思路
 
+sql：
+```sql
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- ----------------------------
+-- Table structure for order
+-- ----------------------------
+DROP TABLE IF EXISTS `order`;
+CREATE TABLE `order`  (
+  `id` int(0) NOT NULL AUTO_INCREMENT,
+  `sid` int(0) NULL DEFAULT NULL COMMENT '库存id、商品id',
+  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '商品名称',
+  `create_time` datetime(0) NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 826 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of order
+-- ----------------------------
+INSERT INTO `order` VALUES (826, 1, '鸿星尔克球鞋', '2021-08-07 15:13:36');
+INSERT INTO `order` VALUES (827, 1, '鸿星尔克球鞋', '2021-08-07 15:13:36');
+INSERT INTO `order` VALUES (828, 1, '鸿星尔克球鞋', '2021-08-07 15:13:36');
+INSERT INTO `order` VALUES (829, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
+INSERT INTO `order` VALUES (830, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
+INSERT INTO `order` VALUES (831, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
+INSERT INTO `order` VALUES (832, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
+INSERT INTO `order` VALUES (833, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
+INSERT INTO `order` VALUES (834, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
+INSERT INTO `order` VALUES (835, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
+INSERT INTO `order` VALUES (836, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
+INSERT INTO `order` VALUES (837, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
+INSERT INTO `order` VALUES (838, 1, '鸿星尔克球鞋', '2021-08-07 15:17:21');
+
+-- ----------------------------
+-- Table structure for stock
+-- ----------------------------
+DROP TABLE IF EXISTS `stock`;
+CREATE TABLE `stock`  (
+  `id` int(0) NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '名称',
+  `total` int(0) NOT NULL COMMENT '库存',
+  `sale` int(0) NOT NULL COMMENT '已售',
+  `version` int(0) NOT NULL COMMENT '乐观锁，版本号',
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of stock
+-- ----------------------------
+INSERT INTO `stock` VALUES (1, '鸿星尔克球鞋', 100, 13, 496);
+
+-- ----------------------------
+-- Table structure for user
+-- ----------------------------
+DROP TABLE IF EXISTS `user`;
+CREATE TABLE `user`  (
+  `id` int(0) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of user
+-- ----------------------------
+INSERT INTO `user` VALUES (1, 'enen', '123');
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+```
+
 踩坑：
 ```java
 @Service
