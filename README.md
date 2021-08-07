@@ -3,6 +3,7 @@
 简单的秒杀系统
 
 ---
+https://www.bilibili.com/video/BV13a4y1t7Wh
 
 改进：
 1. 常规写法（在业务层使用事务）
